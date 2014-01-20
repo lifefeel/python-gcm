@@ -184,7 +184,7 @@ class GCMTest(unittest.TestCase):
         res = self.gcm.handle_plaintext_response(response)
         self.assertEqual(res, '3456')
 
-    @patch('urllib2.urlopen')
+    @patch('urllib.request.urlopen')
     def test_make_request_plaintext(self, urlopen_mock):
         """ Test plaintext make_request. """
 
@@ -199,19 +199,19 @@ class GCMTest(unittest.TestCase):
         request = urlopen_mock.call_args[0][0]
 
         # Test encoded data
-        encoded_data = request.get_data()
-        self.assertEquals(
+        encoded_data = request.data
+        self.assertEqual(
             encoded_data, 'message=test'
         )
 
         # Assert return value
-        self.assertEquals(
+        self.assertEqual(
             response,
             'blah'
         )
 
 
-    @patch('urllib2.urlopen')
+    @patch('urllib.request.urlopen')
     def test_make_request_unicode(self, urlopen_mock):
         """ Regression: Test make_request with unicode payload. """
 

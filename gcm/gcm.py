@@ -1,5 +1,4 @@
-import urllib
-import urllib2
+import urllib.request
 import json
 from collections import defaultdict
 import time
@@ -56,11 +55,11 @@ def urlencode_utf8(params):
 
     if hasattr(params, 'items'):
         params = params.items()
-
+    
     params =  (
         '='.join((
-            urllib.quote_plus(k.encode('utf8'), safe='/'),
-            urllib.quote_plus(v.encode('utf8'), safe='/')
+            urllib.parse.quote_plus(k.encode('utf8'), safe='/'),
+            urllib.parse.quote_plus(v.encode('utf8'), safe='/')
         )) for k, v in params
     )
 
@@ -85,9 +84,9 @@ class GCM(object):
                 protocol = url.split(':')[0]
                 proxy={protocol:proxy}
 
-            auth = urllib2.HTTPBasicAuthHandler()
-            opener = urllib2.build_opener(urllib2.ProxyHandler(proxy), auth, urllib2.HTTPHandler)
-            urllib2.install_opener(opener)
+            auth = urllib.request.HTTPBasicAuthHandler()
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler(proxy), auth, urllib.request.HTTPHandler)
+            urllib.request.install_opener(opener)
 
 
     def construct_payload(self, registration_ids, data=None, collapse_key=None,
@@ -113,21 +112,24 @@ class GCM(object):
         else:
             payload = {'registration_id': registration_ids}
             if data:
+                temp_data = {}
                 plaintext_data = data.copy()
                 for k in plaintext_data.keys():
-                    plaintext_data['data.%s' % k] = plaintext_data.pop(k)
-                payload.update(plaintext_data)
+                    #plaintext_data['data.%s' % k] = plaintext_data.pop(k)
+                    temp_data['data.%s' % k] = plaintext_data.get(k)
+                payload.update(temp_data)
 
         if delay_while_idle:
             payload['delay_while_idle'] = delay_while_idle
-
-        if time_to_live >= 0:
+        
+        if time_to_live is not None and time_to_live >= 0:
             payload['time_to_live'] = time_to_live
             if collapse_key is None:
                 raise GCMNoCollapseKeyException("collapse_key is required when time_to_live is provided")
 
         if collapse_key:
             payload['collapse_key'] = collapse_key
+            payload['restricted_package_name'] = 'net.alluser.rocketpushapp'
 
         if is_json:
             payload = json.dumps(payload)
@@ -150,14 +152,16 @@ class GCM(object):
         # Default Content-Type is defaulted to application/x-www-form-urlencoded;charset=UTF-8
         if is_json:
             headers['Content-Type'] = 'application/json'
+            data = data.encode('utf-8')
+#             data= bytes(data, 'utf-8')
 
         if not is_json:
             data = urlencode_utf8(data)
-        req = urllib2.Request(self.url, data, headers)
+        req = urllib.request.Request(self.url, data, headers)
 
         try:
-            response = urllib2.urlopen(req).read()
-        except urllib2.HTTPError as e:
+            response = urllib.request.urlopen(req).read()
+        except urllib.request.HTTPError as e:
             if e.code == 400:
                 raise GCMMalformedJsonException("The request could not be parsed as JSON")
             elif e.code == 401:
@@ -167,10 +171,11 @@ class GCM(object):
             else:
                 error = "GCM service error: %d" % e.code
                 raise GCMUnavailableException(error)
-        except urllib2.URLError as e:
+        except urllib.request.URLError as e:
             raise GCMConnectionException("There was an internal error in the GCM server while trying to process the request")
 
         if is_json:
+            response = response.decode('utf-8')
             response = json.loads(response)
         return response
 
